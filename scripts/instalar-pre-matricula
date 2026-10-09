@@ -304,6 +304,143 @@ caminho.write_text(texto.replace(antigo, novo, 1))
 PY
 fi
 
+cat > "${PKG}/resources/views/auth/login-button.blade.php" <<'EOF'
+@php
+    $preRegistrationUrl = \iEducar\Packages\PreMatricula\Support\OpenPreRegistration::url();
+@endphp
+@if(!empty($preRegistrationUrl))
+    <a class="pre-registration" href="{{ $preRegistrationUrl }}">
+        <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+        Pré-matrícula
+    </a>
+@endif
+EOF
+
+python3 - "${PKG}" <<'PY'
+from pathlib import Path
+import sys
+
+raiz = Path(sys.argv[1])
+
+abertura = raiz / "src/Support/OpenPreRegistration.php"
+if abertura.is_file():
+    texto = abertura.read_text()
+    texto = texto.replace(
+        "return $abertos === [] ? null : $abertos[0]['url'];",
+        "return $abertos === [] ? null : url('/pre-matricula-digital');",
+    )
+    abertura.write_text(texto)
+
+esquema = raiz / "graphql/process.graphql"
+if esquema.is_file():
+    texto = esquema.read_text()
+    consulta = """  processByStage(
+    id: ID! @eq
+  ): ProcessStage! @find
+"""
+    guardada = (
+        '  """\n'
+        "  Retorna a etapa do processo de ID.\n"
+        '  """\n'
+        "  processByStage(\n"
+        "    id: ID! @eq\n"
+        "  ): ProcessStage! @find\n\n"
+    )
+    if "Etapa usada pela inscrição pública" not in texto and "publicProcesses:" in texto:
+        texto = texto.replace(
+            'publicProcesses: [Process!]! @paginate(scopes: ["active"])\n}',
+            'publicProcesses: [Process!]! @paginate(scopes: ["active"])\n\n  """\n  Etapa usada pela inscrição pública, sem login de servidor.\n  """\n' + consulta + "}",
+            1,
+        )
+    texto = texto.replace(guardada, "")
+    esquema.write_text(texto)
+
+inicio = raiz / "resources/ts/modules/index/components/Index.vue"
+if inicio.is_file() and "Inscrever em" not in inicio.read_text():
+    texto = inicio.read_text()
+    texto = texto.replace(
+        "{{ process.name }} ({{ process.schoolYear.year }})",
+        '{{ process.name }}<template v-if="process.schoolYear && process.schoolYear.year"> ({{ process.schoolYear.year }})</template>',
+    )
+    texto = texto.replace(
+        '<process-stages :process="process" class="mb-3" />',
+        """<div v-if="etapaAberta(process)" class="row">
+            <div class="col-12 mt-2">
+              <router-link
+                :to="`/inscricao/${etapaAberta(process).id}`"
+                class="btn btn-primary"
+              >
+                Inscrever em {{ process.name }}
+              </router-link>
+            </div>
+          </div>
+          <process-stages :process="process" class="mb-3" />""",
+        1,
+    )
+    if "function etapaAberta" not in texto:
+        texto = texto.replace(
+            "    function getData() {",
+            """    function etapaAberta(process: Processes) {
+      return (process.stages || []).find((stage: Stages) => stage.status === 'OPEN') || null;
+    }
+    function getData() {""",
+            1,
+        )
+        texto = texto.replace(
+            "      processes: getProcesses,",
+            "      processes: getProcesses,\n      etapaAberta,",
+            1,
+        )
+    inicio.write_text(texto)
+
+inscricao = raiz / "resources/ts/modules/preregistration/components/PreRegistration.vue"
+if inscricao.is_file() and "erroCarregamento" not in inscricao.read_text():
+    texto = inscricao.read_text()
+    texto = texto.replace(
+        '<skeleton-form-preregistration v-if="step === \'LOADING\'" />',
+        """<skeleton-form-preregistration v-if="step === 'LOADING'" />
+    <div v-if="erroCarregamento" class="col-12 col-md-8 offset-md-2 mt-4 alert alert-danger text-center">
+      Não foi possível abrir esta inscrição.
+      <div class="mt-3">
+        <router-link to="/" class="btn btn-primary">Voltar aos processos</router-link>
+      </div>
+    </div>""",
+        1,
+    )
+    texto = texto.replace(
+        'v-if="step !== \'LOADING\' && step !== \'PROTOCOL\'"',
+        'v-if="!erroCarregamento && step !== \'LOADING\' && step !== \'PROTOCOL\'"',
+        1,
+    )
+    texto = texto.replace(
+        ">('LOADING');\n",
+        ">('LOADING');\nconst erroCarregamento = ref(false);\n",
+        1,
+    )
+    antigo = """    if (response.stage.status !== 'OPEN') {
+      router.push('/');
+      return;
+    }"""
+    novo = """    if (!response.stage || response.stage.status !== 'OPEN') {
+      erroCarregamento.value = true;
+      step.value = 'MATCH';
+      return;
+    }"""
+    texto = texto.replace(antigo, novo, 1)
+    fechamento = """    step.value = 'MATCH';
+  });
+};"""
+    fechamento_novo = """    step.value = 'MATCH';
+  }).catch(() => {
+    erroCarregamento.value = true;
+    step.value = 'MATCH';
+  });
+};"""
+    if fechamento in texto:
+        texto = texto.replace(fechamento, fechamento_novo, 1)
+    inscricao.write_text(texto)
+PY
+
 export VITE_BASE="${VITE_BASE:-/vendor/pre-matricula-digital/}"
 export VITE_ROUTER_BASE="${VITE_ROUTER_BASE:-/pre-matricula-digital}"
 
