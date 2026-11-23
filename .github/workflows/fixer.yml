@@ -16,10 +16,10 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v7
-        with:
-          token: ${{ secrets.ACTIONS_TOKEN }}
 
       - uses: shivammathur/setup-php@v2
         with:

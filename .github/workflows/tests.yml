@@ -4,24 +4,39 @@ on:
   push:
     branches:
       - 2.*
-      - main
 
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+  workflow_dispatch:
+
+  workflow_call:
+    inputs:
+      publish-baseline:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   default:
-    name: Unit, Integration and Pages (PHP ${{ matrix.php-version }})
+    name: Unit, Integration and Pages
 
     if: '! github.event.pull_request.draft'
 
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php-version: ['8.4', '8.5']
+
+    timeout-minutes: 60
+
+    # Na main roda o baseline do TIA: cancelá-lo a cada merge faz ele nunca
+    # terminar, e sem baseline todo PR roda a suíte completa. O GitHub mantém só
+    # o pendente mais recente do grupo, então a fila não acumula.
+    concurrency:
+      group: tests-${{ github.ref }}
+      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
     env:
       APP_URL: http://localhost:8000
       APP_ENV: testing
@@ -41,10 +56,11 @@ jobs:
       LEGACY_SEED_DATA: false
       COMPOSER_ALLOW_SUPERUSER: 1
       NODE_OPTIONS: --max_old_space_size=1024
+      GH_TOKEN: ${{ github.token }}
 
     services:
       postgres:
-        image: postgres
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -56,11 +72,14 @@ jobs:
     steps:
       - name: Setup PHP
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-version }}
+          php-version: '8.5'
           extensions: bcmath, gd, pdo, pcntl, pdo_pgsql, pgsql, zip
+          coverage: pcov
         env:
           update: true
 
@@ -75,11 +94,46 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
+      # Audit the exact lockfile before executing third-party Composer scripts.
+      - name: Audit Composer dependencies
+        run: composer audit --locked --no-interaction
+
       - name: Install Dependencies
-        run: composer new-install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # new-install is intended for local package development and also runs
+      # plug-and-play, which re-resolves dependencies. Keep only the setup
+      # needed by the CI environment.
+      - name: Prepare application
+        run: |
+          php artisan key:generate --ansi
+          php artisan storage:link --ansi
+          php artisan migrate --force --ansi
 
       - name: Prepare tests
         run: php artisan legacy:create:tests
 
+      # PR checks must execute every test on a clean checkout, without TIA.
       - name: Unit tests
-        run: vendor/bin/pest
+        if: ${{ !inputs.publish-baseline }}
+        run: vendor/bin/pest --ci --no-tia
+
+      # Only the dedicated main-branch workflow records and publishes a
+      # fresh TIA graph for local development use.
+      - name: Record TIA baseline
+        if: inputs.publish-baseline
+        run: vendor/bin/pest --tia --fresh
+
+      - name: Resolve o caminho do baseline do TIA
+        if: inputs.publish-baseline
+        id: baseline
+        run: echo "path=$(vendor/bin/pest --baseline)" >> "$GITHUB_OUTPUT"
+
+      - name: Publica o baseline do TIA
+        if: inputs.publish-baseline
+        uses: actions/upload-artifact@v7
+        with:
+          name: pest-tia-baseline
+          path: ${{ steps.baseline.outputs.path }}
+          include-hidden-files: true
+          retention-days: 30
