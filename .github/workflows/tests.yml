@@ -94,8 +94,21 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
+      # Audit the exact lockfile before executing third-party Composer scripts.
+      - name: Audit Composer dependencies
+        run: composer audit --locked --no-interaction
+
       - name: Install Dependencies
-        run: composer new-install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      # new-install is intended for local package development and also runs
+      # plug-and-play, which re-resolves dependencies. Keep only the setup
+      # needed by the CI environment.
+      - name: Prepare application
+        run: |
+          php artisan key:generate --ansi
+          php artisan storage:link --ansi
+          php artisan migrate --force --ansi
 
       - name: Prepare tests
         run: php artisan legacy:create:tests
