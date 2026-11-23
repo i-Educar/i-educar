@@ -21,7 +21,10 @@ beforeEach(function () {
         $query->shouldReceive('where')->with('codigoTurma', 7)->andReturnSelf();
         $query->shouldReceive('get')->andReturn(collect(array_map(fn ($period) => (object) ['turnoId' => $period], $periods)));
 
-        DB::shouldReceive('table')->with('public.educacenso_record60')->andReturn($query);
+        // Keep the real database manager available to Laravel's test teardown.
+        $database = Mockery::mock(DB::getFacadeRoot())->makePartial();
+        $database->shouldReceive('table')->with('public.educacenso_record60')->andReturn($query);
+        DB::swap($database);
     };
 });
 

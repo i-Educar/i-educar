@@ -75,6 +75,10 @@ test('create trigger sql', function () {
 });
 
 test('create', function () {
+    // Preserve real connection management while intercepting SQL execution.
+    $database = Mockery::mock(DB::getFacadeRoot())->makePartial();
+    DB::swap($database);
+
     $expectedFunction = '
             CREATE FUNCTION when_deleted_some_table() 
             RETURNS TRIGGER 
@@ -93,11 +97,11 @@ test('create', function () {
             EXECUTE PROCEDURE when_deleted_some_table();
         ';
 
-    DB::shouldReceive('unprepared')
+    $database->shouldReceive('unprepared')
         ->once()
         ->with($expectedFunction);
 
-    DB::shouldReceive('unprepared')
+    $database->shouldReceive('unprepared')
         ->once()
         ->with($expectedTrigger);
 
@@ -105,14 +109,18 @@ test('create', function () {
 });
 
 test('drop', function () {
+    // Preserve real connection management while intercepting SQL execution.
+    $database = Mockery::mock(DB::getFacadeRoot())->makePartial();
+    DB::swap($database);
+
     $expectedTrigger = 'DROP TRIGGER IF EXISTS trigger_when_deleted_some_table on some_table;';
     $expectedFunction = 'DROP FUNCTION IF EXISTS when_deleted_some_table();';
 
-    DB::shouldReceive('unprepared')
+    $database->shouldReceive('unprepared')
         ->once()
         ->with($expectedTrigger);
 
-    DB::shouldReceive('unprepared')
+    $database->shouldReceive('unprepared')
         ->once()
         ->with($expectedFunction);
 
