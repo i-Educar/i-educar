@@ -26,7 +26,7 @@ jobs:
 
     if: '! github.event.pull_request.draft'
 
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest
 
     timeout-minutes: 60
 
@@ -82,7 +82,6 @@ jobs:
           coverage: pcov
         env:
           update: true
-          runner: self-hosted
 
       - name: Get composer cache directory
         id: composer-cache
@@ -101,10 +100,7 @@ jobs:
       - name: Prepare tests
         run: php artisan legacy:create:tests
 
-      # No runner self-hosted o diretório do TIA (~/.pest/tia) sobrevive entre os
-      # jobs, com o grafo de outras branches e a pausa de 24 h que o Pest grava
-      # quando não acha baseline. Cada execução começa limpa, como num runner
-      # do GitHub, e o estado vem só do baseline publicado.
+      # Isola o estado do TIA entre execuções e utiliza apenas o baseline publicado.
       - name: Limpa o estado local do TIA
         run: rm -rf "$(vendor/bin/pest --baseline)"
 
