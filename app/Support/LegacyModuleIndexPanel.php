@@ -14,14 +14,17 @@ use Throwable;
 /**
  * CUSTOMIZAÇÃO Serventec / Laguna (PE-77) — não faz parte do upstream Portabilis.
  *
- * Preenche a área vazia das telas `*_index.php` do legado (após skins) com um
- * painel minimalista: resumo do módulo + atalhos permitidos ao perfil.
+ * Painel de boas-vindas nos índices legados (*_index.php): visão geral do módulo
+ * e dos grupos do submenu — sem listar todas as telas (isso permanece no submenu).
  */
 final class LegacyModuleIndexPanel
 {
     public const CUSTOM_ID = 'serventec-laguna-module-index';
 
     public const CUSTOM_LABEL = 'Customização Serventec · Laguna';
+
+    /** Máximo de grupos de 1º nível (já são poucos; evita painel infinito em menus anômalos). */
+    private const MAX_GRUPOS = 12;
 
     /**
      * @param  array{descricao?:string,icone?:string}  $extra
@@ -52,8 +55,9 @@ final class LegacyModuleIndexPanel
      *   icone:string,
      *   processo:int|string,
      *   perfil:string,
-     *   grupos:list<array{titulo:string,itens:list<array{titulo:string,url:string,descricao:?string}}>>,
-     *   total:int
+     *   grupos:list<array{titulo:string,descricao:string,qtd:int,exemplos:list<string>,url:?string}>,
+     *   totalGrupos:int,
+     *   totalAcoes:int
      * }
      */
     public static function dados(string $titulo, int|string $processoAp, array $extra = []): array
@@ -64,15 +68,11 @@ final class LegacyModuleIndexPanel
             ?? $user?->name
             ?? 'usuário autenticado';
 
-        $grupos = self::gruposPermitidos($user, $processoAp);
-        $total = 0;
-        foreach ($grupos as $g) {
-            $total += count($g['itens']);
-        }
+        [$grupos, $totalAcoes] = self::gruposChave($user, $processoAp);
 
         $descricao = trim((string) ($extra['descricao'] ?? ''));
         if ($descricao === '') {
-            $descricao = self::descricaoPadrao($titulo, $total);
+            $descricao = self::descricaoPadrao($titulo);
         }
 
         return [
@@ -84,44 +84,45 @@ final class LegacyModuleIndexPanel
             'processo' => $processoAp,
             'perfil' => (string) $perfil,
             'grupos' => $grupos,
-            'total' => $total,
+            'totalGrupos' => count($grupos),
+            'totalAcoes' => $totalAcoes,
         ];
     }
 
     /**
-     * @return list<array{titulo:string,itens:list<array{titulo:string,url:string,descricao:?string}}>>
+     * @return array{0:list<array{titulo:string,descricao:string,qtd:int,exemplos:list<string>,url:?string}>,1:int}
      */
-    private static function gruposPermitidos(?User $user, int|string $processoAp): array
+    private static function gruposChave(?User $user, int|string $processoAp): array
     {
         if ($user === null) {
-            return [];
+            return [[], 0];
         }
 
         $processMenu = app(MenuCacheService::class)->getProcessMenuData($processoAp);
         if ($processMenu === false) {
-            return [];
+            return [[], 0];
         }
 
         $rootId = (int) ($processMenu['root_id'] ?? 0);
         if ($rootId < 1) {
-            return [];
+            return [[], 0];
         }
 
         /** @var Collection<int, Menu> $tree */
         $tree = collect(app(MenuCacheService::class)->getMenuByUser($user));
-        $root = self::encontrarNo($tree, $rootId);
+        $root = self::encontrarNo($tree, $rootId)
+            ?? Menu::query()->with('children.children.children')->find($rootId);
+
         if ($root === null) {
-            // Fallback: menu ainda não filtrado (ex.: cache) — carrega filhos ativos e aplica Gate.
-            $root = Menu::query()->with('children.children.children')->find($rootId);
-            if ($root === null) {
-                return [];
-            }
+            return [[], 0];
         }
 
-        $grupos = [];
         $filhos = $root->children instanceof Collection
             ? $root->children->sortBy('order')
             : collect($root->children ?? [])->sortBy('order');
+
+        $grupos = [];
+        $totalAcoes = 0;
 
         foreach ($filhos as $filho) {
             if (! $filho instanceof Menu) {
@@ -131,30 +132,51 @@ final class LegacyModuleIndexPanel
                 continue;
             }
 
-            $itens = self::coletarLinks($filho, $filho->title);
-            if ($itens === []) {
+            $links = self::coletarLinks($filho);
+            $qtd = count($links);
+            if ($qtd === 0 && ! ($filho->isLink() && self::podeVer($filho))) {
                 continue;
+            }
+
+            if ($qtd === 0 && $filho->isLink()) {
+                $qtd = 1;
+                $links = [[
+                    'titulo' => (string) $filho->title,
+                    'url' => (string) $filho->link,
+                ]];
+            }
+
+            $totalAcoes += $qtd;
+            $exemplos = array_values(array_map(
+                static fn (array $l): string => $l['titulo'],
+                array_slice($links, 0, 3)
+            ));
+
+            $descMenu = trim((string) ($filho->description ?? ''));
+            $descricao = $descMenu !== ''
+                ? $descMenu
+                : self::descricaoGrupo((string) $filho->title, $qtd, $exemplos);
+
+            // Só linka o card se o próprio item do submenu for um link direto (sem filhos).
+            $url = null;
+            if ($filho->isLink() && ! $filho->hasLinkInSubmenu() && self::podeVer($filho)) {
+                $url = (string) $filho->link;
             }
 
             $grupos[] = [
                 'titulo' => (string) $filho->title,
-                'itens' => $itens,
+                'descricao' => $descricao,
+                'qtd' => $qtd,
+                'exemplos' => $exemplos,
+                'url' => $url,
             ];
         }
 
-        // Se o root for link direto sem filhos úteis, lista o próprio.
-        if ($grupos === [] && $root->isLink() && self::podeVer($root)) {
-            $grupos[] = [
-                'titulo' => 'Opções',
-                'itens' => [[
-                    'titulo' => (string) $root->title,
-                    'url' => (string) $root->link,
-                    'descricao' => $root->description ? (string) $root->description : null,
-                ]],
-            ];
+        if (count($grupos) > self::MAX_GRUPOS) {
+            $grupos = array_slice($grupos, 0, self::MAX_GRUPOS);
         }
 
-        return $grupos;
+        return [$grupos, $totalAcoes];
     }
 
     /**
@@ -169,8 +191,7 @@ final class LegacyModuleIndexPanel
             if ((int) $no->getKey() === $id) {
                 return $no;
             }
-            $filhos = $no->children ?? [];
-            $achou = self::encontrarNo($filhos, $id);
+            $achou = self::encontrarNo($no->children ?? [], $id);
             if ($achou !== null) {
                 return $achou;
             }
@@ -180,9 +201,9 @@ final class LegacyModuleIndexPanel
     }
 
     /**
-     * @return list<array{titulo:string,url:string,descricao:?string}>
+     * @return list<array{titulo:string,url:string}>
      */
-    private static function coletarLinks(Menu $menu, string $grupo): array
+    private static function coletarLinks(Menu $menu): array
     {
         $itens = [];
 
@@ -190,7 +211,6 @@ final class LegacyModuleIndexPanel
             $itens[] = [
                 'titulo' => (string) $menu->title,
                 'url' => (string) $menu->link,
-                'descricao' => self::caminhoRelativo($menu, $grupo),
             ];
         }
 
@@ -205,7 +225,7 @@ final class LegacyModuleIndexPanel
             if (method_exists($filho, 'hasLink') && ! $filho->hasLink()) {
                 continue;
             }
-            foreach (self::coletarLinks($filho, $grupo) as $item) {
+            foreach (self::coletarLinks($filho) as $item) {
                 $itens[] = $item;
             }
         }
@@ -231,26 +251,26 @@ final class LegacyModuleIndexPanel
         }
     }
 
-    private static function caminhoRelativo(Menu $menu, string $grupo): ?string
+    /**
+     * @param  list<string>  $exemplos
+     */
+    private static function descricaoGrupo(string $titulo, int $qtd, array $exemplos): string
     {
-        $desc = trim((string) ($menu->description ?? ''));
-        if ($desc !== '') {
-            return $desc;
+        $amostra = $exemplos !== []
+            ? ' Inclui '.implode(', ', array_slice($exemplos, 0, 2))
+                .(count($exemplos) > 2 ? '…' : '').'.'
+            : '';
+
+        if ($qtd <= 1) {
+            return "Área «{$titulo}» do submenu.{$amostra}";
         }
 
-        if ((string) $menu->title === $grupo) {
-            return null;
-        }
-
-        return $grupo.' › '.$menu->title;
+        return "Grupo do submenu com {$qtd} ações liberadas ao seu perfil.{$amostra}";
     }
 
-    private static function descricaoPadrao(string $titulo, int $total): string
+    private static function descricaoPadrao(string $titulo): string
     {
-        if ($total > 0) {
-            return "Módulo «{$titulo}» — {$total} opção(ões) disponíveis para o seu perfil. Escolha um atalho ou use o submenu.";
-        }
-
-        return "Módulo «{$titulo}» — nenhuma opção liberada para o seu perfil neste momento. Verifique permissões em Tipos de usuário.";
+        return "Visão geral do módulo «{$titulo}». O submenu acima concentra todas as ações; "
+            .'aqui só os grupos principais para orientar o caminho.';
     }
 }

@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Endereçamento', $this->processoAp, [
-            'descricao' => 'Países, estados, municípios e demais cadastros de localização disponíveis ao seu perfil.',
+            'descricao' => 'Cadastros de localização. Abra o submenu para países, estados, municípios e demais opções.',
             'icone' => 'fa-map-marker',
         ]);
     }

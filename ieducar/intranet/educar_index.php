@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Escola', $this->processoAp, [
-            'descricao' => 'Cadastros escolares, turmas, matrículas, movimentações e ferramentas pedagógicas liberadas para o seu perfil.',
+            'descricao' => 'Núcleo escolar: cadastros, movimentações, lançamentos e relatórios. O submenu acima tem a lista completa.',
             'icone' => 'fa-university',
         ]);
     }

@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Pessoas', $this->processoAp, [
-            'descricao' => 'Cadastros de pessoas físicas e jurídicas, tipologias e ferramentas de unificação disponíveis ao seu perfil.',
+            'descricao' => 'Cadastro de pessoas e tipologias. Navegue pelo submenu Cadastros e Ferramentas para as telas específicas.',
             'icone' => 'fa-users',
         ]);
     }
