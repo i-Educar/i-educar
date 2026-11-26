@@ -125,16 +125,16 @@ final class LegacyModuleIndexPanel
         $totalAcoes = 0;
 
         foreach ($filhos as $filho) {
-            if (! $filho instanceof Menu) {
+            if (!$filho instanceof Menu) {
                 continue;
             }
-            if (method_exists($filho, 'hasLink') && ! $filho->hasLink()) {
+            if (method_exists($filho, 'hasLink') && !$filho->hasLink()) {
                 continue;
             }
 
             $links = self::coletarLinks($filho);
             $qtd = count($links);
-            if ($qtd === 0 && ! ($filho->isLink() && self::podeVer($filho))) {
+            if ($qtd === 0 && !($filho->isLink() && self::podeVer($filho))) {
                 continue;
             }
 
@@ -159,7 +159,7 @@ final class LegacyModuleIndexPanel
 
             // Só linka o card se o próprio item do submenu for um link direto (sem filhos).
             $url = null;
-            if ($filho->isLink() && ! $filho->hasLinkInSubmenu() && self::podeVer($filho)) {
+            if ($filho->isLink() && !$filho->hasLinkInSubmenu() && self::podeVer($filho)) {
                 $url = (string) $filho->link;
             }
 
@@ -185,7 +185,7 @@ final class LegacyModuleIndexPanel
     private static function encontrarNo(iterable $nos, int $id): ?Menu
     {
         foreach ($nos as $no) {
-            if (! $no instanceof Menu) {
+            if (!$no instanceof Menu) {
                 continue;
             }
             if ((int) $no->getKey() === $id) {
@@ -219,10 +219,10 @@ final class LegacyModuleIndexPanel
             : collect($menu->children ?? [])->sortBy('order');
 
         foreach ($filhos as $filho) {
-            if (! $filho instanceof Menu) {
+            if (!$filho instanceof Menu) {
                 continue;
             }
-            if (method_exists($filho, 'hasLink') && ! $filho->hasLink()) {
+            if (method_exists($filho, 'hasLink') && !$filho->hasLink()) {
                 continue;
             }
             foreach (self::coletarLinks($filho) as $item) {

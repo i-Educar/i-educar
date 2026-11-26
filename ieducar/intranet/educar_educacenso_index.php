@@ -4,7 +4,7 @@
  * CUSTOMIZAÇÕES BURITI
  * Índice do módulo Educacenso — painel minimalista no lugar da área em branco do legado.
  *
- * @see \App\Support\LegacyModuleIndexPanel
+ * @see LegacyModuleIndexPanel
  */
 
 use App\Support\LegacyModuleIndexPanel;
