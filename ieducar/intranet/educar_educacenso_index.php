@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Educacenso', $this->processoAp, [
-            'descricao' => 'Exportações, importações e rotinas do Censo Escolar liberadas para o seu perfil.',
+            'descricao' => 'Rotinas do Censo Escolar. As exportações e importações ficam no submenu deste módulo.',
             'icone' => 'fa-cloud-upload',
         ]);
     }

@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Configurações', $this->processoAp, [
-            'descricao' => 'Parâmetros do sistema, tipos de usuário, menus e ferramentas administrativas disponíveis ao seu perfil.',
+            'descricao' => 'Parâmetros e permissões do sistema. Use o submenu para Configurações, Permissões, Módulos e Ferramentas.',
             'icone' => 'fa-cogs',
         ]);
     }

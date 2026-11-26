@@ -14,7 +14,7 @@ return new class
     public function RenderHTML()
     {
         return LegacyModuleIndexPanel::render('Servidores', $this->processoAp, [
-            'descricao' => 'Cadastro funcional, alocações e ferramentas de RH escolar liberadas para o seu perfil.',
+            'descricao' => 'Gestão de servidores e RH. Os grupos do submenu (Cadastros, RH, horários…) concentram as ações.',
             'icone' => 'fa-id-badge',
         ]);
     }

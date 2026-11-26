@@ -14,7 +14,7 @@ class LegacyModuleIndexPanelTest extends TestCase
         $this->assertStringContainsString('Laguna', LegacyModuleIndexPanel::CUSTOM_LABEL);
     }
 
-    public function test_render_sem_usuario_nao_quebra_e_marca_customizacao(): void
+    public function test_render_sem_usuario_nao_quebra_e_orienta_submenu(): void
     {
         $html = LegacyModuleIndexPanel::render('Pessoas', 7, [
             'descricao' => 'Teste unitário',
@@ -25,5 +25,7 @@ class LegacyModuleIndexPanelTest extends TestCase
         $this->assertStringContainsString(LegacyModuleIndexPanel::CUSTOM_ID, $html);
         $this->assertStringContainsString('Pessoas', $html);
         $this->assertStringContainsString(LegacyModuleIndexPanel::CUSTOM_LABEL, $html);
+        $this->assertStringContainsString('Submenu intacto', $html);
+        $this->assertStringContainsString('svc-module-index__grade', $html);
     }
 }
