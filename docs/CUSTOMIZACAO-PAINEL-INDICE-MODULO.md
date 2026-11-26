@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 | --- | --- |
-| **Origem** | Serventec / Laguna PE-77 |
+| **Origem** | CUSTOMIZAÇÕES BURITI |
 | **Upstream** | Portabilis i-Educar — **não** existe lá; manter marcado em merges |
-| **ID** | `serventec-laguna-module-index` |
+| **ID** | `customizacoes-buriti-module-index` |
 | **Classe** | `App\Support\LegacyModuleIndexPanel` |
 | **View** | `resources/views/legacy/module-index-panel.blade.php` |
 
@@ -17,7 +17,7 @@ Com skins Buriti/Laguna, a área abaixo do submenu ficava um bloco branco sem co
 
 Painel de **visão geral** (não substitui o submenu):
 
-1. Identificação clara de **customização Serventec · Laguna**
+1. Identificação clara de ****CUSTOMIZAÇÕES BURITI****
 2. Nome e descrição do módulo
 3. Perfil do usuário + contagem de grupos/ações liberadas
 4. Cards só dos **grupos de 1º nível** do submenu (Cadastros, Ferramentas…), com descrição — a lista completa de telas permanece no submenu horizontal
@@ -38,4 +38,4 @@ Painel de **visão geral** (não substitui o submenu):
 ## Merge / fork
 
 Ao puxar upstream Portabilis, **não descartar** estes arquivos sem revisar.
-Busca rápida: `serventec-laguna-module-index` ou `LegacyModuleIndexPanel`.
+Busca rápida: `customizacoes-buriti-module-index` ou `LegacyModuleIndexPanel`.

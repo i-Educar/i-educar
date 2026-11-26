@@ -1,5 +1,5 @@
 {{--
-  CUSTOMIZAÇÃO Serventec / Laguna (PE-77)
+  CUSTOMIZAÇÕES BURITI
   Painel de visão geral nos índices legados — não substitui o submenu.
   Identificador: {{ $customId }}
 --}}
@@ -151,22 +151,22 @@ body.tema-buriti-skin[data-buriti-modo="escuro"] .svc-module-index__card{
         <div>
             <h2 class="svc-module-index__titulo">{{ $titulo }}</h2>
             <p class="svc-module-index__lead">{{ $descricao }}</p>
-            <p class="svc-module-index__meta">
-                Perfil: <strong>{{ $perfil }}</strong>
-                @if($totalGrupos > 0)
+            @if($totalGrupos > 0)
+                <p class="svc-module-index__meta">
+                    Perfil: <strong>{{ $perfil }}</strong>
                     · {{ $totalGrupos }} grupo(s) no submenu
-                    · {{ $totalAcoes }} ação(ões) liberada(s)
-                @endif
-            </p>
+                    · {{ $totalAcoes }} ação(ões)
+                </p>
+            @endif
         </div>
     </header>
 
-    <p class="svc-module-index__nota">
-        <strong>Submenu intacto:</strong> todas as telas continuam no menu horizontal acima.
-        Este painel só destaca os <em>grupos principais</em> para orientar — abra o item correspondente no submenu para a lista completa.
-    </p>
-
     @if($totalGrupos > 0)
+        <p class="svc-module-index__nota">
+            Use o <strong>submenu acima</strong> para abrir as telas. Este painel destaca os
+            <em>grupos principais</em> disponíveis.
+        </p>
+
         <div class="svc-module-index__grade">
             @foreach($grupos as $grupo)
                 @if(!empty($grupo['url']))
@@ -190,10 +190,5 @@ body.tema-buriti-skin[data-buriti-modo="escuro"] .svc-module-index__card{
                 @endif
             @endforeach
         </div>
-    @else
-        <p class="svc-module-index__vazio">
-            Nenhuma área deste módulo está liberada para o seu tipo de usuário.
-            Peça ao administrador para revisar as permissões em <strong>Configurações → Tipos de usuário</strong>.
-        </p>
     @endif
 </section>
