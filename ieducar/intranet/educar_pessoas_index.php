@@ -1,14 +1,22 @@
 <?php
 
+/**
+ * CUSTOMIZAÇÃO Serventec / Laguna (PE-77)
+ * Índice do módulo Pessoas — painel minimalista no lugar da área em branco do legado.
+ *
+ * @see \App\Support\LegacyModuleIndexPanel
+ */
+
+use App\Support\LegacyModuleIndexPanel;
+
 return new class
 {
     public function RenderHTML()
     {
-        return '
-                <table width=\'100%\' height=\'100%\'>
-                    <tr align=center valign=\'top\'><td></td></tr>
-                </table>
-                ';
+        return LegacyModuleIndexPanel::render('Pessoas', $this->processoAp, [
+            'descricao' => 'Cadastros de pessoas físicas e jurídicas, tipologias e ferramentas de unificação disponíveis ao seu perfil.',
+            'icone' => 'fa-users',
+        ]);
     }
 
     public function Formular()
