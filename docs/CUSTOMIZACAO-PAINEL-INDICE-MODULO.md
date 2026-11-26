@@ -15,12 +15,13 @@ Com skins Buriti/Laguna, a área abaixo do submenu ficava um bloco branco sem co
 
 ## Solução
 
-Painel minimalista com:
+Painel de **visão geral** (não substitui o submenu):
 
 1. Identificação clara de **customização Serventec · Laguna**
 2. Nome e descrição do módulo
-3. Perfil do usuário logado
-4. Atalhos **filtrados** pelo menu já permitido ao tipo de usuário (`MenuCacheService` + `Gate::view`)
+3. Perfil do usuário + contagem de grupos/ações liberadas
+4. Cards só dos **grupos de 1º nível** do submenu (Cadastros, Ferramentas…), com descrição — a lista completa de telas permanece no submenu horizontal
+5. Filtro pelo menu já permitido ao tipo de usuário (`MenuCacheService` + `Gate::view`)
 
 ## Arquivos tocados (core)
 
