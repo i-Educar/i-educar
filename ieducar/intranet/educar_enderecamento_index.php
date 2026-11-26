@@ -1,7 +1,7 @@
 <?php
 
 /**
- * CUSTOMIZAÇÃO Serventec / Laguna (PE-77)
+ * CUSTOMIZAÇÕES BURITI
  * Índice do módulo Endereçamento — painel minimalista no lugar da área em branco do legado.
  *
  * @see \App\Support\LegacyModuleIndexPanel

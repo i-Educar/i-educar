@@ -12,16 +12,16 @@ use Illuminate\Support\Facades\View;
 use Throwable;
 
 /**
- * CUSTOMIZAÇÃO Serventec / Laguna (PE-77) — não faz parte do upstream Portabilis.
+ * CUSTOMIZAÇÕES BURITI — não faz parte do upstream Portabilis.
  *
  * Painel de boas-vindas nos índices legados (*_index.php): visão geral do módulo
  * e dos grupos do submenu — sem listar todas as telas (isso permanece no submenu).
  */
 final class LegacyModuleIndexPanel
 {
-    public const CUSTOM_ID = 'serventec-laguna-module-index';
+    public const CUSTOM_ID = 'customizacoes-buriti-module-index';
 
-    public const CUSTOM_LABEL = 'Customização Serventec · Laguna';
+    public const CUSTOM_LABEL = 'CUSTOMIZAÇÕES BURITI';
 
     /** Máximo de grupos de 1º nível (já são poucos; evita painel infinito em menus anômalos). */
     private const MAX_GRUPOS = 12;
@@ -265,12 +265,12 @@ final class LegacyModuleIndexPanel
             return "Área «{$titulo}» do submenu.{$amostra}";
         }
 
-        return "Grupo do submenu com {$qtd} ações liberadas ao seu perfil.{$amostra}";
+        return "Grupo do submenu com {$qtd} ações.{$amostra}";
     }
 
     private static function descricaoPadrao(string $titulo): string
     {
-        return "Visão geral do módulo «{$titulo}». O submenu acima concentra todas as ações; "
+        return "Visão geral do módulo «{$titulo}». O submenu acima concentra as ações; "
             .'aqui só os grupos principais para orientar o caminho.';
     }
 }
