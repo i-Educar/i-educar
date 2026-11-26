@@ -1,14 +1,22 @@
 <?php
 
+/**
+ * CUSTOMIZAÇÃO Serventec / Laguna (PE-77)
+ * Índice do módulo Servidores — painel minimalista no lugar da área em branco do legado.
+ *
+ * @see \App\Support\LegacyModuleIndexPanel
+ */
+
+use App\Support\LegacyModuleIndexPanel;
+
 return new class
 {
     public function RenderHTML()
     {
-        return '
-                <table width=\'100%\' height=\'100%\'>
-                    <tr align=center valign=\'top\'><td></td></tr>
-                </table>
-                ';
+        return LegacyModuleIndexPanel::render('Servidores', $this->processoAp, [
+            'descricao' => 'Cadastro funcional, alocações e ferramentas de RH escolar liberadas para o seu perfil.',
+            'icone' => 'fa-id-badge',
+        ]);
     }
 
     public function Formular()
