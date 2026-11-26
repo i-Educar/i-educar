@@ -1,14 +1,22 @@
 <?php
 
+/**
+ * CUSTOMIZAÇÃO Serventec / Laguna (PE-77)
+ * Índice do módulo Escola — painel minimalista no lugar da área em branco do legado.
+ *
+ * @see \App\Support\LegacyModuleIndexPanel
+ */
+
+use App\Support\LegacyModuleIndexPanel;
+
 return new class
 {
     public function RenderHTML()
     {
-        return '<!--
-                <table width=\'100%\' style=\'height: 100%;\'>
-                    <tr align=center valign=\'top\'><td><div id=\'flash-container\' align=\'right\' style=\'width: 200px; right: 10px;top: 27px; position: absolute;\'><p style=\'min-height: 0px;\'\' class=\'flash sucess\'>Olá! Alteramos o menu do lançamento de notas, agora, acesse apenas <strong>Movimentação > Faltas/Notas</strong> e pronto! Qualquer dúvida, entre em contato. :)</p></div></td></tr>
-                </table>-->
-                ';
+        return LegacyModuleIndexPanel::render('Escola', $this->processoAp, [
+            'descricao' => 'Cadastros escolares, turmas, matrículas, movimentações e ferramentas pedagógicas liberadas para o seu perfil.',
+            'icone' => 'fa-university',
+        ]);
     }
 
     public function Formular()
