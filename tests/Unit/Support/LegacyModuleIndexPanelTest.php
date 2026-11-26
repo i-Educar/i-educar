@@ -9,9 +9,8 @@ class LegacyModuleIndexPanelTest extends TestCase
 {
     public function test_constantes_de_customizacao_estao_claras(): void
     {
-        $this->assertSame('serventec-laguna-module-index', LegacyModuleIndexPanel::CUSTOM_ID);
-        $this->assertStringContainsString('Serventec', LegacyModuleIndexPanel::CUSTOM_LABEL);
-        $this->assertStringContainsString('Laguna', LegacyModuleIndexPanel::CUSTOM_LABEL);
+        $this->assertSame('customizacoes-buriti-module-index', LegacyModuleIndexPanel::CUSTOM_ID);
+        $this->assertSame('CUSTOMIZAÇÕES BURITI', LegacyModuleIndexPanel::CUSTOM_LABEL);
     }
 
     public function test_render_sem_usuario_nao_quebra_e_orienta_submenu(): void
@@ -24,8 +23,9 @@ class LegacyModuleIndexPanelTest extends TestCase
         $this->assertStringContainsString('svc-module-index', $html);
         $this->assertStringContainsString(LegacyModuleIndexPanel::CUSTOM_ID, $html);
         $this->assertStringContainsString('Pessoas', $html);
-        $this->assertStringContainsString(LegacyModuleIndexPanel::CUSTOM_LABEL, $html);
-        $this->assertStringContainsString('Submenu intacto', $html);
-        $this->assertStringContainsString('svc-module-index__grade', $html);
+        $this->assertStringContainsString('CUSTOMIZAÇÕES BURITI', $html);
+        $this->assertStringNotContainsString('não está liberada', $html);
+        $this->assertStringNotContainsString('Tipos de usuário', $html);
+        $this->assertStringNotContainsString('Nenhuma área', $html);
     }
 }
