@@ -54,68 +54,79 @@ class Menu extends Model
         $excludes = [
             Process::CONFIG,
             Process::SETTINGS,
+            Process::MENU_CONFIGURATIONS,
         ];
 
-        return self::withRecursiveQueryConstraint(static function (Builder $query) use ($user, $excludes) {
-            $query->whereNull('menus.process');
-            $query->orWhere(function ($query) use ($user, $excludes) {
-                $query->whereNotNull('menus.process');
-                $query->whereNotIn('menus.process', $excludes);
-                $query->whereHas('userTypes', function (Builder $query) use ($user) {
-                    $query->where('ref_cod_tipo_usuario', $user->ref_cod_tipo_usuario);
-                });
-            });
+        $permittedIds = static::query()
+            ->whereNotNull('process')
+            ->whereNotIn('process', $excludes)
+            ->whereHas('userTypes', static function (Builder $query) use ($user) {
+                $query->where('ref_cod_tipo_usuario', $user->ref_cod_tipo_usuario);
+            })
+            ->pluck('id')
+            ->map(static fn ($id) => (int) $id)
+            ->all();
+
+        if ($permittedIds === []) {
+            return new Collection;
+        }
+
+        // Pasta com process NULL só entra se for ancestral de menu permitido
+        // (antes: whereNull(process) OR liberava todos os relatórios/links sem ACL).
+        $ids = self::idsComAncestrais($permittedIds);
+
+        return self::withRecursiveQueryConstraint(static function (Builder $query) use ($ids) {
+            $query->whereIn('menus.id', $ids);
         }, static function () {
             return self::tree()->orderBy('order')->get();
         })->toTree();
     }
 
+    /**
+     * @param  list<int>  $ids
+     * @return list<int>
+     */
+    private static function idsComAncestrais(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === []) {
+            return [];
+        }
+
+        $seen = array_fill_keys($ids, true);
+        $pending = $ids;
+
+        while ($pending !== []) {
+            $parents = static::query()
+                ->whereIn('id', $pending)
+                ->whereNotNull('parent_id')
+                ->pluck('parent_id')
+                ->map(static fn ($id) => (int) $id)
+                ->unique()
+                ->all();
+
+            $pending = [];
+            foreach ($parents as $parentId) {
+                if (isset($seen[$parentId])) {
+                    continue;
+                }
+                $seen[$parentId] = true;
+                $pending[] = $parentId;
+            }
+        }
+
+        return array_map('intval', array_keys($seen));
+    }
+
     private static function getMenusByIds($ids): Collection
     {
-        return static::query()
-            ->with([
-                'children' => function ($query) use ($ids) {
-                    /** @var Builder $query */
-                    $query->whereNull('process');
-                    $query->orWhereIn('id', $ids);
-                    $query->orderBy('order');
-                    $query->with([
-                        'children' => function ($query) use ($ids) {
-                            /** @var Builder $query */
-                            $query->whereNull('process');
-                            $query->orWhereIn('id', $ids);
-                            $query->orderBy('order');
-                            $query->with([
-                                'children' => function ($query) use ($ids) {
-                                    /** @var Builder $query */
-                                    $query->whereNull('process');
-                                    $query->orWhereIn('id', $ids);
-                                    $query->orderBy('order');
-                                    $query->with([
-                                        'children' => function ($query) use ($ids) {
-                                            /** @var Builder $query */
-                                            $query->whereNull('process');
-                                            $query->orWhereIn('id', $ids);
-                                            $query->orderBy('order');
-                                            $query->with([
-                                                'children' => function ($query) use ($ids) {
-                                                    /** @var Builder $query */
-                                                    $query->whereNull('process');
-                                                    $query->orWhereIn('id', $ids);
-                                                    $query->orderBy('order');
-                                                },
-                                            ]);
-                                        },
-                                    ]);
-                                },
-                            ]);
-                        },
-                    ]);
-                },
-            ])
-            ->whereNull('parent_id')
-            ->orderBy('order')
-            ->get();
+        $ids = self::idsComAncestrais(array_map('intval', (array) $ids));
+
+        return self::withRecursiveQueryConstraint(static function (Builder $query) use ($ids) {
+            $query->whereIn('menus.id', $ids);
+        }, static function () {
+            return self::tree()->orderBy('order')->get();
+        })->toTree();
     }
 
     /**

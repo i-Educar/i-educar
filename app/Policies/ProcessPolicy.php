@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Menu;
 use App\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
@@ -20,15 +19,8 @@ class ProcessPolicy
             return true;
         }
 
-        $root = Menu::query()
-            ->whereNull('parent_id')
-            ->where('process', $process)
-            ->exists();
-
-        if ($root) {
-            return true;
-        }
-
+        // Menus raiz (Configurações, Escola, etc.) também exigem ACL —
+        // antes o bypass liberava process de raiz para qualquer usuário autenticado.
         return $user->processes()
             ->wherePivot('visualiza', 1)
             ->where('process', $process)
