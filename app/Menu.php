@@ -75,11 +75,13 @@ class Menu extends Model
         // (antes: whereNull(process) OR liberava todos os relatórios/links sem ACL).
         $ids = self::idsComAncestrais($permittedIds);
 
-        return self::withRecursiveQueryConstraint(static function (Builder $query) use ($ids) {
-            $query->whereIn('menus.id', $ids);
-        }, static function () {
-            return self::tree()->orderBy('order')->get();
-        })->toTree();
+        // Carrega só os IDs permitidos (+ ancestrais) e monta a árvore —
+        // withRecursiveQueryConstraint + tree() não filtrava as raízes irmãs.
+        return static::query()
+            ->whereIn('id', $ids)
+            ->orderBy('order')
+            ->get()
+            ->toTree();
     }
 
     /**
@@ -122,11 +124,11 @@ class Menu extends Model
     {
         $ids = self::idsComAncestrais(array_map('intval', (array) $ids));
 
-        return self::withRecursiveQueryConstraint(static function (Builder $query) use ($ids) {
-            $query->whereIn('menus.id', $ids);
-        }, static function () {
-            return self::tree()->orderBy('order')->get();
-        })->toTree();
+        return static::query()
+            ->whereIn('id', $ids)
+            ->orderBy('order')
+            ->get()
+            ->toTree();
     }
 
     /**
