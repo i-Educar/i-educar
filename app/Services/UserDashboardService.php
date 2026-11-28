@@ -1410,8 +1410,13 @@ final class UserDashboardService
         $menus = collect($this->menus->getMenuByUser($user) ?? []);
 
         // Só raízes de módulo no painel — nunca subfunções (itens, pedidos, cardápio…).
+        // Ancestral (ex.: Escola) entra na árvore por filhos Buriti, mas só vira card
+        // se o usuário tiver ACL no process da raiz.
         foreach ($menus as $menu) {
             if (! $menu instanceof Menu || ! $menu->hasLink()) {
+                continue;
+            }
+            if (! $this->menuPodeAbrirNoPainel($user, $menu)) {
                 continue;
             }
 
@@ -2196,9 +2201,13 @@ final class UserDashboardService
             if (array_key_exists('acesso_permitido', $a) && $a['acesso_permitido'] === false) {
                 continue;
             }
-            $id = (string) ($a['modulo_id'] ?? '');
-            if ($id === '' || $user->isAdmin()) {
+            if ($user->isAdmin()) {
                 $a['acesso_permitido'] = true;
+                continue;
+            }
+            $id = (string) ($a['modulo_id'] ?? '');
+            if ($id === '') {
+                $a['acesso_permitido'] = $this->nucleoUrlPermitida($user, (string) ($a['url'] ?? ''));
                 continue;
             }
             if (! class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::class)) {
@@ -2210,6 +2219,54 @@ final class UserDashboardService
         unset($a);
 
         return $atalhos;
+    }
+
+    /**
+     * Raiz do núcleo i-Educar (Escola, Pessoas, …) só se o process correspondente estiver na ACL.
+     */
+    private function menuPodeAbrirNoPainel(User $user, Menu $menu): bool
+    {
+        $process = (int) ($menu->process ?? 0);
+        if ($process <= 0) {
+            return false;
+        }
+        try {
+            return $user->can('view', $process);
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function nucleoUrlPermitida(User $user, string $url): bool
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || $path === '') {
+            $path = $url;
+        }
+        $path = '/'.trim(mb_strtolower($path), '/');
+
+        $mapa = [
+            '/intranet/educar_index.php' => 55,
+            '/intranet/educar_pessoas_index.php' => 7,
+            '/intranet/educar_configuracoes_index.php' => 25,
+            '/intranet/educar_educacenso_index.php' => 70,
+            '/intranet/educar_enderecamento_index.php' => 68,
+            '/rh-educacional' => 71,
+            '/laguna-ambiente' => 889900,
+            '/pre-matricula' => 56,
+        ];
+        foreach ($mapa as $raiz => $processo) {
+            if ($path === $raiz || str_starts_with($path, $raiz.'/')) {
+                try {
+                    return $user->can('view', $processo);
+                } catch (\Throwable) {
+                    return false;
+                }
+            }
+        }
+
+        // URL de núcleo desconhecida: não liberar por omissão.
+        return false;
     }
 
     /**
