@@ -1408,6 +1408,7 @@ final class UserDashboardService
         /** @var Collection<int, Menu> $menus */
         $menus = collect($this->menus->getMenuByUser($user) ?? []);
 
+        // Só raízes de módulo no painel — nunca subfunções (itens, pedidos, cardápio…).
         foreach ($menus as $menu) {
             if (! $menu instanceof Menu || ! $menu->hasLink()) {
                 continue;
@@ -1419,29 +1420,34 @@ final class UserDashboardService
                 continue;
             }
 
-            $atalhos[] = $this->montarAtalhoModulo(
+            $atalho = $this->montarAtalhoModulo(
                 $titulo,
                 $url,
                 $menu->description ? (string) $menu->description : null,
                 $menu->icon ? (string) $menu->icon : null
             );
+            if (! $this->ehEntradaRaizDoPainel($atalho)) {
+                continue;
+            }
+            $atalhos[] = $atalho;
         }
 
-        // Módulos-produto aninhados (ex.: Busca Ativa sob Escola) entram no painel.
         foreach ($menus as $menu) {
             if (! $menu instanceof Menu) {
                 continue;
             }
             foreach ($this->coletarModulosPromovidos($menu) as $promovido) {
-                $atalhos[] = $promovido;
+                if ($this->ehEntradaRaizDoPainel($promovido)) {
+                    $atalhos[] = $promovido;
+                }
             }
         }
 
-        $unicos = $this->unicosPorUrl($atalhos);
-        $unicos = $this->anexarStatusModulos($unicos);
+        $unicos = $this->anexarStatusModulos($atalhos);
         $unicos = $this->marcarAcessoPermitido($user, $unicos);
         $unicos = $this->incluirModulosCatalogoNoPainel($user, $unicos);
         $unicos = $this->incluirNucleoPainelSemAcesso($user, $unicos);
+        $unicos = $this->unicosPorModulo($unicos);
         usort($unicos, static function (array $a, array $b): int {
             // Sem acesso / desligados no fim; usáveis primeiro (ordem de jornada).
             $usable = static fn (array $x): bool => (! array_key_exists('acesso_permitido', $x) || ! empty($x['acesso_permitido']))
@@ -1999,6 +2005,144 @@ final class UserDashboardService
         }
 
         return $out;
+    }
+
+    /**
+     * Um card por módulo (ou por título do núcleo). Prefere a URL raiz do catálogo.
+     *
+     * @param  list<array<string,mixed>>  $atalhos
+     * @return list<array<string,mixed>>
+     */
+    private function unicosPorModulo(array $atalhos): array
+    {
+        $porChave = [];
+        foreach ($atalhos as $a) {
+            $id = isset($a['modulo_id']) && is_string($a['modulo_id']) && $a['modulo_id'] !== ''
+                ? (string) $a['modulo_id']
+                : null;
+            $chave = $id !== null
+                ? 'mod:'.$id
+                : 'tit:'.mb_strtoupper((string) ($a['titulo'] ?? ''), 'UTF-8');
+
+            $candidato = $a;
+            if ($id !== null) {
+                $raiz = $this->urlRaizCatalogo($id);
+                if ($raiz !== null) {
+                    $candidato['url'] = $this->absolutizar($raiz);
+                    $candidato['externo'] = str_starts_with($raiz, 'http');
+                }
+            }
+
+            $score = $this->scoreEntradaPainel($candidato);
+            if (! isset($porChave[$chave]) || $score > ($porChave[$chave]['_score'] ?? -1)) {
+                $candidato['_score'] = $score;
+                $porChave[$chave] = $candidato;
+            }
+        }
+
+        $out = [];
+        foreach ($porChave as $a) {
+            unset($a['_score']);
+            $out[] = $a;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string,mixed>  $atalho
+     */
+    private function ehEntradaRaizDoPainel(array $atalho): bool
+    {
+        $url = (string) ($atalho['url'] ?? '');
+        $path = parse_url($url, PHP_URL_PATH);
+        if (! is_string($path) || $path === '') {
+            $path = $url;
+        }
+        $path = '/'.trim(mb_strtolower($path), '/');
+
+        $id = $atalho['modulo_id'] ?? $this->resolverModuloIdPorUrl($url);
+        if (is_string($id) && $id !== '') {
+            $raiz = $this->urlRaizCatalogo($id);
+            if ($raiz !== null) {
+                $raizPath = parse_url($this->absolutizar($raiz), PHP_URL_PATH) ?: $raiz;
+                $raizPath = '/'.trim(mb_strtolower((string) $raizPath), '/');
+
+                // Apenas a URL raiz do módulo — nunca /…/itens, /…/pedidos etc.
+                return $path === $raizPath;
+            }
+        }
+
+        // Núcleo i-Educar: só índices / hubs, não telas profundas.
+        $raizesNucleo = [
+            '/intranet/educar_index.php',
+            '/intranet/educar_pessoas_index.php',
+            '/intranet/educar_configuracoes_index.php',
+            '/intranet/educar_educacenso_index.php',
+            '/intranet/educar_enderecamento_index.php',
+            '/rh-educacional',
+            '/pre-matricula',
+            '/laguna-ambiente',
+            '/seguranca',
+            '/idiario/entrar',
+        ];
+        foreach ($raizesNucleo as $raiz) {
+            if ($path === $raiz) {
+                return true;
+            }
+        }
+
+        // Sem modulo_id e sem raiz conhecida: não vira card (evita 6× almox).
+        return false;
+    }
+
+    private function urlRaizCatalogo(string $moduloId): ?string
+    {
+        if (! class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\CatalogoModulos::class)) {
+            return null;
+        }
+        foreach (\iEducar\Packages\BuritiLagunaAmbiente\Support\CatalogoModulos::todos() as $mod) {
+            if ((string) ($mod['id'] ?? '') !== $moduloId) {
+                continue;
+            }
+            $url = (string) ($mod['admin_url'] ?? ($mod['rotas'][0] ?? ''));
+
+            return $url !== '' ? $url : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $a
+     */
+    private function scoreEntradaPainel(array $a): int
+    {
+        $score = 0;
+        if (! empty($a['acesso_permitido'])) {
+            $score += 100;
+        }
+        if (! empty($a['modulo_ativo'])) {
+            $score += 10;
+        }
+        $url = (string) ($a['url'] ?? '');
+        $path = parse_url($url, PHP_URL_PATH) ?: $url;
+        $path = '/'.trim((string) $path, '/');
+        $score += max(0, 40 - strlen($path)); // URL mais curta = mais “raiz”
+
+        $id = $a['modulo_id'] ?? null;
+        if (is_string($id) && $id !== '') {
+            $raiz = $this->urlRaizCatalogo($id);
+            if ($raiz !== null) {
+                $raizPath = parse_url($this->absolutizar($raiz), PHP_URL_PATH) ?: $raiz;
+                $raizPath = '/'.trim((string) $raizPath, '/');
+                if ($path === $raizPath) {
+                    $score += 50;
+                }
+            }
+        }
+
+        return $score;
     }
 
     /**
