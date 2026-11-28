@@ -63,6 +63,14 @@ final class UserDashboardService
             default => 'Boa noite',
         };
         $seguranca = $this->statusSegurancaConta($user);
+        $papelExtra = null;
+        if (class_exists(\iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::class)) {
+            try {
+                $papelExtra = \iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::mensagemBoasVindas($user);
+            } catch (\Throwable) {
+                $papelExtra = null;
+            }
+        }
 
         return [
             'usuario' => [
@@ -81,6 +89,7 @@ final class UserDashboardService
                 'saudacao' => $saudacao,
                 'periodo' => $periodo,
             ],
+            'papel_temporario' => $papelExtra,
             'seguranca' => $seguranca,
             'notificacoes' => $notificacoes,
             'nao_lidas' => $naoLidas,

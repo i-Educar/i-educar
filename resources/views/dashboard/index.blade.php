@@ -117,6 +117,12 @@
             </p>
             <h1 class="hero-papel">{{ $papelCurto }}</h1>
             <p class="lead">{{ $escopoCurto }}</p>
+            @if(!empty($dados['papel_temporario']))
+                <p class="hero-papel-extra" role="status" style="margin:.75rem 0 0;padding:.65rem .85rem;border-radius:8px;background:#ecfdf5;color:#065f46;font-size:.92rem;line-height:1.4;max-width:36rem">
+                    <i class="fa fa-users" aria-hidden="true"></i>
+                    {{ $dados['papel_temporario'] }}
+                </p>
+            @endif
         </div>
 
         @if($avisosSeguranca !== [])

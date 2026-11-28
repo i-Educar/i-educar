@@ -33,16 +33,11 @@ class MenuCacheService
         $key = $this->getUserKey($user);
         $client = $this->getClient();
 
-        $cacheMenus = $this->cache->tags(['menus', $client, $key])->get($key);
+        $cacheMenus = $this->remember($key, ['menus', $client, $key], self::TTL_MENU_TREE, function () use ($user) {
+            return Menu::user($user);
+        });
 
-        if ($cacheMenus !== null) {
-            return $cacheMenus;
-        }
-
-        $menus = Menu::user($user);
-        $this->putMenuCache($menus, $user);
-
-        return $menus;
+        return $cacheMenus;
     }
 
     public function putMenuCache(Collection $adminMenus, User $user)
@@ -50,7 +45,7 @@ class MenuCacheService
         $key = $this->getUserKey($user);
         $client = $this->getClient();
 
-        $this->cache->tags(['menus', $client, $key])->put($key, $adminMenus, self::TTL_MENU_TREE);
+        $this->put($key, ['menus', $client, $key], $adminMenus, self::TTL_MENU_TREE);
     }
 
     /**
@@ -63,36 +58,92 @@ class MenuCacheService
         }
 
         $client = $this->getClient();
+        $key = 'menu-process-'.$client.'-'.$process;
 
-        return $this->cache->tags(['menus', $client])->remember(
-            'menu-process-' . $client . '-' . $process,
-            self::TTL_PROCESS_MENU,
-            function () use ($process) {
-                $menu = Menu::query()->where('process', $process)->first();
+        return $this->remember($key, ['menus', $client], self::TTL_PROCESS_MENU, function () use ($process) {
+            $menu = Menu::query()->where('process', $process)->first();
 
-                if ($menu === null) {
-                    return false;
-                }
-
-                $ancestors = $menu->ancestors()->get();
-
-                return [
-                    'attributes' => $menu->getAttributes(),
-                    'root_id' => $ancestors->whereNull('parent_id')->first()?->getKey() ?? $menu->getKey(),
-                    'ancestor_ids' => $ancestors->pluck('id')->all(),
-                ];
+            if ($menu === null) {
+                return false;
             }
-        );
+
+            $ancestors = $menu->ancestors()->get();
+
+            return [
+                'attributes' => $menu->getAttributes(),
+                'root_id' => $ancestors->whereNull('parent_id')->first()?->getKey() ?? $menu->getKey(),
+                'ancestor_ids' => $ancestors->pluck('id')->all(),
+            ];
+        });
     }
 
     public function flushAll(): void
     {
-        $this->cache->tags(DB::connection()->getConfig('database'))->flush();
+        $client = (string) DB::connection()->getConfig('database');
+
+        if ($this->supportsTags()) {
+            $this->cache->tags($client)->flush();
+            $this->cache->tags(['menus', $client])->flush();
+
+            return;
+        }
+
+        // Store sem tags (ex.: file/database): limpa chaves conhecidas do menu.
+        $this->cache->forget('menu-process-'.$client);
     }
 
     public function flushMenuTag($tagMenu)
     {
-        $this->cache->tags('menu-' . $this->getClient() . '-' . $tagMenu)->flush();
+        $client = $this->getClient();
+        $tag = 'menu-'.$client.'-'.$tagMenu;
+
+        if ($this->supportsTags()) {
+            $this->cache->tags($tag)->flush();
+
+            return;
+        }
+
+        $this->cache->forget($tag);
+    }
+
+    private function supportsTags(): bool
+    {
+        return method_exists($this->cache, 'supportsTags') && $this->cache->supportsTags();
+    }
+
+    /**
+     * @param  list<string>  $tags
+     * @param  callable(): mixed  $callback
+     */
+    private function remember(string $key, array $tags, int $ttl, callable $callback): mixed
+    {
+        if ($this->supportsTags()) {
+            return $this->cache->tags($tags)->remember($key, $ttl, $callback);
+        }
+
+        return $this->cache->remember($this->untaggedKey($key, $tags), $ttl, $callback);
+    }
+
+    /**
+     * @param  list<string>  $tags
+     */
+    private function put(string $key, array $tags, mixed $value, int $ttl): void
+    {
+        if ($this->supportsTags()) {
+            $this->cache->tags($tags)->put($key, $value, $ttl);
+
+            return;
+        }
+
+        $this->cache->put($this->untaggedKey($key, $tags), $value, $ttl);
+    }
+
+    /**
+     * @param  list<string>  $tags
+     */
+    private function untaggedKey(string $key, array $tags): string
+    {
+        return 'menu-fallback:'.implode('.', $tags).':'.$key;
     }
 
     private function getClient(): string
@@ -102,6 +153,16 @@ class MenuCacheService
 
     private function getUserKey(User $user): string
     {
-        return 'menu-' . $this->getClient() . '-' . $user->type->cod_tipo_usuario;
+        $tipo = (string) ($user->type->cod_tipo_usuario ?? $user->ref_cod_tipo_usuario ?? '0');
+        $fp = '';
+        if (class_exists(\iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::class)) {
+            try {
+                $fp = '-'.\iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::fingerprint($user);
+            } catch (\Throwable) {
+                $fp = '';
+            }
+        }
+
+        return 'menu-'.$this->getClient().'-'.$tipo.$fp;
     }
 }

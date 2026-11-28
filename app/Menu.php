@@ -57,11 +57,17 @@ class Menu extends Model
             Process::MENU_CONFIGURATIONS,
         ];
 
+        $tipos = [(int) $user->ref_cod_tipo_usuario];
+        if (class_exists(\iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::class)
+            && \iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::habilitado()) {
+            $tipos = \iEducar\Packages\BuritiPapeisTemporarios\Services\PapeisTemporarios::tiposEfetivos($user);
+        }
+
         $permittedIds = static::query()
             ->whereNotNull('process')
             ->whereNotIn('process', $excludes)
-            ->whereHas('userTypes', static function (Builder $query) use ($user) {
-                $query->where('ref_cod_tipo_usuario', $user->ref_cod_tipo_usuario);
+            ->whereHas('userTypes', static function (Builder $query) use ($tipos) {
+                $query->whereIn('ref_cod_tipo_usuario', $tipos);
             })
             ->pluck('id')
             ->map(static fn ($id) => (int) $id)

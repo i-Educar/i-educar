@@ -176,6 +176,8 @@ return [
         ConsoleSupportServiceProvider::class,
         CookieServiceProvider::class,
         DatabaseServiceProvider::class,
+        // Resolver pgsql do core ANTES dos pacotes (CTE/adjacency-list) tocarem o DB.
+        \App\Providers\Postgres\DatabaseServiceProvider::class,
         EncryptionServiceProvider::class,
         FilesystemServiceProvider::class,
         FoundationServiceProvider::class,
@@ -194,7 +196,34 @@ return [
 
         /*
          * Package Service Providers...
+         * (LagunaAmbiente também re-registra o catálogo em runtime — evita 404 após
+         * reinstalação do BI / package:discover que apague entradas desta lista.)
          */
+        iEducar\Packages\BuritiExportacaoUnificada\Providers\ExportacaoUnificadaServiceProvider::class,
+        iEducar\Packages\BuritiAssinaturaDigital\Providers\AssinaturaDigitalServiceProvider::class,
+        iEducar\Packages\BuritiCidadeModeloInstall\Providers\CidadeModeloInstallServiceProvider::class,
+        iEducar\Packages\BuritiSeguranca\Providers\SegurancaServiceProvider::class,
+        iEducar\Packages\BuritiPapeisTemporarios\Providers\PapeisTemporariosServiceProvider::class,
+        iEducar\Packages\BuritiEscolarAderencia\Providers\EscolarAderenciaServiceProvider::class,
+        iEducar\Packages\BuritiAppsApi\Providers\AppsApiServiceProvider::class,
+        iEducar\Packages\BuritiAlimentacaoEscolar\Providers\AlimentacaoEscolarServiceProvider::class,
+        iEducar\Packages\BuritiAlmoxarifadoEscolar\Providers\AlmoxarifadoEscolarServiceProvider::class,
+        iEducar\Packages\BuritiAtendimentoEstudante\Providers\AtendimentoEstudanteServiceProvider::class,
+        iEducar\Packages\BuritiBiblioteca\Providers\BibliotecaServiceProvider::class,
+        iEducar\Packages\BuritiBuscaAtiva\Providers\BuscaAtivaServiceProvider::class,
+        iEducar\Packages\BuritiSolicitacaoServicos\Providers\SolicitacaoServicosServiceProvider::class,
+        iEducar\Packages\BuritiHorarioAutomatico\Providers\HorarioAutomaticoServiceProvider::class,
+        iEducar\Packages\BuritiContratacoesTemporarias\Providers\ContratacoesTemporariasServiceProvider::class,
+        iEducar\Packages\BuritiRhEducacional\Providers\RhEducacionalServiceProvider::class,
+        iEducar\Packages\BuritiServidorEducacional\Providers\ServidorEducacionalServiceProvider::class,
+        iEducar\Packages\BuritiEducacensoImport\Providers\BuritiEducacensoImportServiceProvider::class,
+        iEducar\Packages\BuritiLagunaAmbiente\Providers\LagunaAmbienteServiceProvider::class,
+        iEducar\Packages\BuritiEventosFormacao\Providers\EventosFormacaoServiceProvider::class,
+        iEducar\Packages\BuritiSetup\Providers\BuritiSetupServiceProvider::class,
+        iEducar\Packages\BuritiTransporteEscolar\Providers\TransporteEscolarServiceProvider::class,
+        iEducar\Packages\AdvancedReports\Providers\AdvancedReportsProvider::class,
+        iEducar\Packages\Bis\Providers\BisProvider::class,
+        iEducar\Packages\PreMatricula\Providers\PreMatriculaServiceProvider::class,
 
         /*
          * Application Service Providers...
