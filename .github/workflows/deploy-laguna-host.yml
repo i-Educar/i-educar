@@ -46,11 +46,19 @@ jobs:
       - name: Resolver paths allowlisted
         id: paths
         env:
-          INPUT_PATHS: ${{ github.event.inputs.paths || 'resources/views/dashboard' }}
+          INPUT_PATHS: ${{ github.event.inputs.paths || '' }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           # Allowlist estrita — não sync de árvore inteira.
           ALLOW='resources/views/dashboard|app/Menu.php|app/Policies/ProcessPolicy.php|app/Services/UserDashboardService.php'
+          if [ -z "${INPUT_PATHS//[[:space:]]/}" ]; then
+            if [ "$EVENT_NAME" = "push" ]; then
+              INPUT_PATHS='resources/views/dashboard,app/Menu.php,app/Policies/ProcessPolicy.php,app/Services/UserDashboardService.php'
+            else
+              INPUT_PATHS='resources/views/dashboard'
+            fi
+          fi
           OUT=()
           IFS=',' read -ra RAW <<< "$INPUT_PATHS"
           for p in "${RAW[@]}"; do
