@@ -92,12 +92,10 @@ jobs:
             echo "::error::Nenhum path para sync"
             exit 1
           fi
-          {
-            echo "list<<EOF"
-            printf '%s\n' "${OUT[@]}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          echo "Paths: ${OUT[*]}"
+          # Arquivo no workspace — multiline em GITHUB_OUTPUT + <<< só lia a 1ª linha.
+          printf '%s\n' "${OUT[@]}" > "$GITHUB_WORKSPACE/deploy-host-paths.txt"
+          echo "count=${#OUT[@]}" >> "$GITHUB_OUTPUT"
+          echo "Paths (${#OUT[@]}): ${OUT[*]}"
 
       - name: Exigir secrets de deploy
         env:
@@ -149,23 +147,29 @@ jobs:
           set -euo pipefail
           APP="${{ secrets.LAGUNA_APP_PATH }}"
           SHA=$(git rev-parse --short HEAD)
+          PATHS_FILE="$GITHUB_WORKSPACE/deploy-host-paths.txt"
+          if [ ! -s "$PATHS_FILE" ]; then
+            echo "::error::deploy-host-paths.txt ausente ou vazio"
+            exit 1
+          fi
+          echo "Arquivo de paths:"; cat -A "$PATHS_FILE"
           while IFS= read -r REL; do
             [ -z "$REL" ] && continue
             DEST="${APP}/${REL}"
             if [ -d "$REL" ]; then
               ssh laguna "mkdir -p '$DEST'"
-              rsync -az --delete \
+              rsync -azc --delete \
                 --no-perms --no-owner --no-group --omit-dir-times \
                 --exclude '.git/' \
-                "$REL"/ "laguna:${DEST}/" || { rc=$?; [ "$rc" -eq 23 ] || exit "$rc"; }
+                "$REL"/ "laguna:${DEST}/"
             else
               ssh laguna "mkdir -p '$(dirname "$DEST")'"
-              rsync -az \
+              rsync -azc \
                 --no-perms --no-owner --no-group --omit-dir-times \
-                "$REL" "laguna:${DEST}" || { rc=$?; [ "$rc" -eq 23 ] || exit "$rc"; }
+                "$REL" "laguna:${DEST}"
             fi
             echo "Synced $REL @ $SHA → $DEST"
-          done <<< "${{ steps.paths.outputs.list }}"
+          done < "$PATHS_FILE"
 
       - name: Esvaziar caches Laravel
         if: ${{ always() && steps.sync.outcome == 'success' && (github.event_name == 'push' || github.event.inputs.clear_caches == 'true') }}
