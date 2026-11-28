@@ -51,10 +51,10 @@ jobs:
         run: |
           set -euo pipefail
           # Allowlist estrita — não sync de árvore inteira.
-          ALLOW='resources/views/dashboard|app/Menu.php|app/Policies/ProcessPolicy.php|app/Services/UserDashboardService.php'
+          ALLOW='resources/views/dashboard|app/Menu.php|app/Policies/ProcessPolicy.php|app/Services/UserDashboardService.php|app/Http/Controllers/IdiarioSsoController.php'
           if [ -z "${INPUT_PATHS//[[:space:]]/}" ]; then
             if [ "$EVENT_NAME" = "push" ]; then
-              INPUT_PATHS='resources/views/dashboard,app/Menu.php,app/Policies/ProcessPolicy.php,app/Services/UserDashboardService.php'
+              INPUT_PATHS='resources/views/dashboard,app/Menu.php,app/Policies/ProcessPolicy.php,app/Services/UserDashboardService.php,app/Http/Controllers/IdiarioSsoController.php'
             else
               INPUT_PATHS='resources/views/dashboard'
             fi

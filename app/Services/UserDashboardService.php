@@ -1382,11 +1382,16 @@ final class UserDashboardService
         $diario = IdiarioPortal::urlEntrada();
         if ($diario !== null) {
             $metaDiario = $this->metaJornadaModulo('i-Diário', $diario);
+            $podeDiario = $user->isAdmin()
+                || (class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::class)
+                    && \iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::usuarioPodeAcessarModulo($user, 'idiario'));
             $atalhos[] = [
                 'titulo' => $this->tituloCardModulo('i-Diário', $diario),
-                'descricao' => IdiarioPortal::integrado()
-                    ? 'Frequência e lançamentos com SSO.'
-                    : 'Frequência e lançamentos pedagógicos.',
+                'descricao' => ! $podeDiario
+                    ? 'Seu perfil não inclui este módulo.'
+                    : (IdiarioPortal::integrado()
+                        ? 'Frequência e lançamentos com SSO.'
+                        : 'Frequência e lançamentos pedagógicos.'),
                 'url' => $diario,
                 'icone' => $metaDiario['icone'],
                 'externo' => ! str_starts_with($diario, url('/')),
@@ -1394,9 +1399,9 @@ final class UserDashboardService
                 'ordem' => $metaDiario['ordem'],
                 'cor' => $metaDiario['cor'],
                 'acao' => $metaDiario['acao'],
-                'modulo_id' => null,
+                'modulo_id' => 'idiario',
                 'modulo_ativo' => true,
-                'acesso_permitido' => true,
+                'acesso_permitido' => $podeDiario,
             ];
         }
 
