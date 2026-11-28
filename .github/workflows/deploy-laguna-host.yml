@@ -153,20 +153,21 @@ jobs:
             exit 1
           fi
           echo "Arquivo de paths:"; cat -A "$PATHS_FILE"
-          while IFS= read -r REL; do
+          # ssh/rsync não podem herdar o stdin do while (senão consomem o arquivo de paths).
+          while IFS= read -r REL || [ -n "$REL" ]; do
             [ -z "$REL" ] && continue
             DEST="${APP}/${REL}"
             if [ -d "$REL" ]; then
-              ssh laguna "mkdir -p '$DEST'"
+              ssh -n laguna "mkdir -p '$DEST'"
               rsync -azc --delete \
                 --no-perms --no-owner --no-group --omit-dir-times \
                 --exclude '.git/' \
-                "$REL"/ "laguna:${DEST}/"
+                "$REL"/ "laguna:${DEST}/" </dev/null
             else
-              ssh laguna "mkdir -p '$(dirname "$DEST")'"
+              ssh -n laguna "mkdir -p '$(dirname "$DEST")'"
               rsync -azc \
                 --no-perms --no-owner --no-group --omit-dir-times \
-                "$REL" "laguna:${DEST}"
+                "$REL" "laguna:${DEST}" </dev/null
             fi
             echo "Synced $REL @ $SHA → $DEST"
           done < "$PATHS_FILE"
