@@ -1379,30 +1379,31 @@ final class UserDashboardService
 
         // i-Educar fica no botão do topo (logomarca); aqui só módulos disponíveis.
 
+        // Só entra no painel se o perfil tiver i-Diário (cenário do servidor).
         $diario = IdiarioPortal::urlEntrada();
         if ($diario !== null) {
-            $metaDiario = $this->metaJornadaModulo('i-Diário', $diario);
             $podeDiario = $user->isAdmin()
                 || (class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::class)
                     && \iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::usuarioPodeAcessarModulo($user, 'idiario'));
-            $atalhos[] = [
-                'titulo' => $this->tituloCardModulo('i-Diário', $diario),
-                'descricao' => ! $podeDiario
-                    ? 'Seu perfil não inclui este módulo.'
-                    : (IdiarioPortal::integrado()
+            if ($podeDiario) {
+                $metaDiario = $this->metaJornadaModulo('i-Diário', $diario);
+                $atalhos[] = [
+                    'titulo' => $this->tituloCardModulo('i-Diário', $diario),
+                    'descricao' => IdiarioPortal::integrado()
                         ? 'Frequência e lançamentos com SSO.'
-                        : 'Frequência e lançamentos pedagógicos.'),
-                'url' => $diario,
-                'icone' => $metaDiario['icone'],
-                'externo' => ! str_starts_with($diario, url('/')),
-                'jornada' => $metaDiario['jornada'],
-                'ordem' => $metaDiario['ordem'],
-                'cor' => $metaDiario['cor'],
-                'acao' => $metaDiario['acao'],
-                'modulo_id' => 'idiario',
-                'modulo_ativo' => true,
-                'acesso_permitido' => $podeDiario,
-            ];
+                        : 'Frequência e lançamentos pedagógicos.',
+                    'url' => $diario,
+                    'icone' => $metaDiario['icone'],
+                    'externo' => ! str_starts_with($diario, url('/')),
+                    'jornada' => $metaDiario['jornada'],
+                    'ordem' => $metaDiario['ordem'],
+                    'cor' => $metaDiario['cor'],
+                    'acao' => $metaDiario['acao'],
+                    'modulo_id' => 'idiario',
+                    'modulo_ativo' => true,
+                    'acesso_permitido' => true,
+                ];
+            }
         }
 
         /** @var Collection<int, Menu> $menus */
@@ -1446,8 +1447,12 @@ final class UserDashboardService
         $unicos = $this->anexarStatusModulos($atalhos);
         $unicos = $this->marcarAcessoPermitido($user, $unicos);
         $unicos = $this->incluirModulosCatalogoNoPainel($user, $unicos);
-        $unicos = $this->incluirNucleoPainelSemAcesso($user, $unicos);
         $unicos = $this->unicosPorModulo($unicos);
+        // Painel = só o que o perfil opera (sem card cinza de módulo alheio).
+        $unicos = array_values(array_filter(
+            $unicos,
+            static fn (array $x): bool => ! array_key_exists('acesso_permitido', $x) || ! empty($x['acesso_permitido'])
+        ));
         usort($unicos, static function (array $a, array $b): int {
             // Sem acesso / desligados no fim; usáveis primeiro (ordem de jornada).
             $usable = static fn (array $x): bool => (! array_key_exists('acesso_permitido', $x) || ! empty($x['acesso_permitido']))
@@ -2194,8 +2199,8 @@ final class UserDashboardService
     }
 
     /**
-     * Catálogo completo no painel: com permissão (ativo ou desligado SME) ou
-     * sem permissão (cinza no fim) — nunca oculta o card.
+     * Completa o painel com módulos do catálogo que o perfil pode usar.
+     * Não injeta card cinza de módulo fora do cenário do servidor.
      *
      * @param  list<array<string,mixed>>  $atalhos
      * @return list<array<string,mixed>>
@@ -2228,99 +2233,22 @@ final class UserDashboardService
             }
 
             $temPerm = $this->usuarioTemPermissaoModulo($user, $mod);
+            if (! $temPerm) {
+                continue;
+            }
+
             $ativoSme = ! class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\ModuloConfiguracao::class)
                 || \iEducar\Packages\BuritiLagunaAmbiente\Support\ModuloConfiguracao::ativo($id);
-
-            $descricao = ! $temPerm
-                ? 'Seu perfil não inclui este módulo.'
-                : (! $ativoSme
-                    ? 'Módulo desativado nas configurações municipais.'
-                    : null);
 
             $atalho = $this->montarAtalhoModulo(
                 (string) $mod['nome'],
                 $url,
-                $descricao,
+                ! $ativoSme ? 'Módulo desativado nas configurações municipais.' : null,
                 isset($mod['icone']) ? (string) $mod['icone'] : null
             );
             $atalho['modulo_id'] = $id;
             $atalho['modulo_ativo'] = $ativoSme;
-            $atalho['acesso_permitido'] = $temPerm;
-            $atalhos[] = $atalho;
-        }
-
-        return $this->unicosPorUrl($atalhos);
-    }
-
-    /**
-     * Núcleo i-Educar (Configurações, Escola, …) permanece visível sem ACL —
-     * card cinza no fim, sem clique.
-     *
-     * @param  list<array<string,mixed>>  $atalhos
-     * @return list<array<string,mixed>>
-     */
-    private function incluirNucleoPainelSemAcesso(User $user, array $atalhos): array
-    {
-        if ($user->isAdmin()) {
-            return $atalhos;
-        }
-
-        $nucleo = [
-            [
-                'titulo' => 'Configurações',
-                'url' => '/intranet/educar_configuracoes_index.php',
-                'processos' => [25, 999873],
-                'icone' => 'fa-cog',
-            ],
-            [
-                'titulo' => 'Escola',
-                'url' => '/intranet/educar_index.php',
-                'processos' => [55],
-                'icone' => 'fa-graduation-cap',
-            ],
-            [
-                'titulo' => 'Pessoas',
-                'url' => '/intranet/educar_pessoas_index.php',
-                'processos' => [7],
-                'icone' => 'fa-users',
-            ],
-            [
-                'titulo' => 'Servidores',
-                'url' => '/rh-educacional',
-                'processos' => [71],
-                'icone' => 'fa-id-badge',
-            ],
-            [
-                'titulo' => 'Ambiente Laguna',
-                'url' => '/laguna-ambiente',
-                'processos' => [889900],
-                'icone' => 'fa-shield',
-            ],
-        ];
-
-        foreach ($nucleo as $item) {
-            $temPerm = false;
-            foreach ($item['processos'] as $processo) {
-                try {
-                    if ($user->can('view', $processo)) {
-                        $temPerm = true;
-                        break;
-                    }
-                } catch (\Throwable) {
-                }
-            }
-            if ($temPerm) {
-                continue;
-            }
-
-            $atalho = $this->montarAtalhoModulo(
-                $item['titulo'],
-                $item['url'],
-                'Seu perfil não inclui este módulo.',
-                $item['icone']
-            );
-            $atalho['acesso_permitido'] = false;
-            $atalho['modulo_ativo'] = true;
+            $atalho['acesso_permitido'] = true;
             $atalhos[] = $atalho;
         }
 
