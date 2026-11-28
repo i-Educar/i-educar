@@ -1449,9 +1449,23 @@ final class UserDashboardService
         $unicos = $this->incluirModulosCatalogoNoPainel($user, $unicos);
         $unicos = $this->unicosPorModulo($unicos);
         // Painel = só o que o perfil opera (sem card cinza de módulo alheio).
+        // Exportação é transversal: card só para Admin/Secretário SME; demais usam o módulo de origem.
         $unicos = array_values(array_filter(
             $unicos,
-            static fn (array $x): bool => ! array_key_exists('acesso_permitido', $x) || ! empty($x['acesso_permitido'])
+            static function (array $x) use ($user): bool {
+                if (array_key_exists('acesso_permitido', $x) && empty($x['acesso_permitido'])) {
+                    return false;
+                }
+                $id = (string) ($x['modulo_id'] ?? '');
+                if ($id === 'exportacao'
+                    && class_exists(\iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::class)
+                    && ! \iEducar\Packages\BuritiLagunaAmbiente\Support\PermissaoMatriz::exportacaoTemCardPainel($user)
+                ) {
+                    return false;
+                }
+
+                return true;
+            }
         ));
         usort($unicos, static function (array $a, array $b): int {
             // Sem acesso / desligados no fim; usáveis primeiro (ordem de jornada).
